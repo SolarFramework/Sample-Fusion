@@ -117,30 +117,26 @@ void VisionPose::estimatePose()
 
     while (m_process)
     {
-        while (!m_fifoCamera.empty() && m_process)
+        if (!m_fifoCamera.empty())
         {
+            SRef<Image> image;
+            bool success;
 
-            if (!m_fifoCamera.empty())
-            {
-                SRef<Image> image;
-                bool success;
+            std::tie(timestamp, image) = m_fifoCamera.pop();
 
-                std::tie(timestamp, image) = m_fifoCamera.pop();
+            Transform3Df pose;
+            success = processImage(image, pose);
 
-                Transform3Df pose;
-                success = processImage(image, pose);
+            m_fifoVision.push(std::tuple<std::chrono::high_resolution_clock::time_point, SRef<Image>, Transform3Df, bool>(timestamp, image, pose, success));
 
-                m_fifoVision.push(std::tuple<std::chrono::high_resolution_clock::time_point, SRef<Image>, Transform3Df, bool>(timestamp, image, pose, success));
+            Vector<T, 3> position;
+            Quaternion<T> orientation;
 
-                Vector<T, 3> position;
-                Quaternion<T> orientation;
-
-                Transform3Df poseInverse = pose.inverse();
-                KalmanHelper::poseToPositionAndOrientation(poseInverse, position, orientation);
-                KalmanHelper::kalmanToOpenCVBase(position, orientation);
-                m_osVideo << timestamp.time_since_epoch().count() << ", " << position(0) << ", " << position(1) << ", " << position(2) << ", " <<
-                    orientation.w() << ", " << orientation.x() << ", " << orientation.y() << ", " << orientation.z() << ", " << success << endl;
-            }
+            Transform3Df poseInverse = pose.inverse();
+            KalmanHelper::poseToPositionAndOrientation(poseInverse, position, orientation);
+            KalmanHelper::kalmanToOpenCVBase(position, orientation);
+            m_osVideo << timestamp.time_since_epoch().count() << ", " << position(0) << ", " << position(1) << ", " << position(2) << ", " <<
+                orientation.w() << ", " << orientation.x() << ", " << orientation.y() << ", " << orientation.z() << ", " << success << endl;
         }
    }
 }
